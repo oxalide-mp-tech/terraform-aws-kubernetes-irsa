@@ -65,13 +65,24 @@ resource "aws_codebuild_project" "pod_identity_webhook" {
     buildspec = <<EOF
 version: 0.2
 phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws --version
+      - $(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)
   build:
     commands:
-    - echo $CODEBUILD_SOURCE_VERSION
-    - make docker REGION=${data.aws_region.current_ecr.name} REGISTRY_ID=${aws_ecr_repository.pod_identity_webhook.registry_id} IMAGE_NAME=${aws_ecr_repository.pod_identity_webhook.name}
-    - IMAGE=${aws_ecr_repository.pod_identity_webhook.registry_id}.dkr.ecr.${data.aws_region.current_ecr.name}.amazonaws.com/${aws_ecr_repository.pod_identity_webhook.name}
-    - docker tag $IMAGE $IMAGE:$CODEBUILD_SOURCE_VERSION
-    - make push REGION=${data.aws_region.current_ecr.name} REGISTRY_ID=${aws_ecr_repository.pod_identity_webhook.registry_id} IMAGE_NAME=${aws_ecr_repository.pod_identity_webhook.name}
+      - echo $CODEBUILD_SOURCE_VERSION
+      - IMAGE=${aws_ecr_repository.pod_identity_webhook.registry_id}.dkr.ecr.${data.aws_region.current_ecr.name}.amazonaws.com/${aws_ecr_repository.pod_identity_webhook.name}
+      - echo 'Building image $IMAGE...'
+      - docker build --cache-from=$IMAGE -t $IMAGE .
+      - docker tag $IMAGE $IMAGE:$CODEBUILD_SOURCE_VERSION
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker images...
+      - docker push $IMAGE:latest
+      - docker push $IMAGE:$CODEBUILD_SOURCE_VERSION
 EOF
   }
 
