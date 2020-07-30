@@ -20,3 +20,4 @@ variable "signer_private_key_filename" {
   description = "Filename of the private key (for kops_cluster.yaml)"
   default     = "/dev/null"
 }
+

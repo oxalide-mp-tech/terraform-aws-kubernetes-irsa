@@ -45,12 +45,16 @@ resource "aws_iam_openid_connect_provider" "irsa" {
 }
 
 resource "aws_ecr_repository" "pod_identity_webhook" {
+  provider = aws.ecr
   name = "eks/pod-identity-webhook"
 }
 
-data "aws_region" "current" {}
+data "aws_region" "current_ecr" {
+  provider     = aws.ecr
+}
 
 resource "aws_codebuild_project" "pod_identity_webhook" {
+  provider     = aws.ecr
   name         = "pod-identity-webhook"
   description  = "Build https://github.com/aws/amazon-eks-pod-identity-webhook"
   service_role = aws_iam_role.codebuild_pod_identity_webhook.arn
@@ -63,7 +67,7 @@ version: 0.2
 phases:
   build:
     commands:
-    - make push REGION=${data.aws_region.current.name} REGISTRY_ID=${aws_ecr_repository.pod_identity_webhook.registry_id} IMAGE_NAME=${aws_ecr_repository.pod_identity_webhook.name}
+    - make push REGION=${data.aws_region.current_ecr.name} REGISTRY_ID=${aws_ecr_repository.pod_identity_webhook.registry_id} IMAGE_NAME=${aws_ecr_repository.pod_identity_webhook.name}
 EOF
   }
 
@@ -80,6 +84,7 @@ EOF
 }
 
 resource "aws_iam_role" "codebuild_pod_identity_webhook" {
+  provider           = aws.ecr
   name               = "codebuild_pod_identity_webhook"
   assume_role_policy = <<EOF
 {
@@ -97,7 +102,9 @@ resource "aws_iam_role" "codebuild_pod_identity_webhook" {
 EOF
 }
 
+# TODO: allow cross-account policy
 resource "aws_iam_role_policy" "codebuild_pod_identity_webhook" {
+  provider = aws.ecr
   role   = aws_iam_role.codebuild_pod_identity_webhook.name
   policy = <<EOF
 {
@@ -147,6 +154,29 @@ resource "aws_iam_role_policy" "codebuild_pod_identity_webhook" {
             "ecr:UploadLayerPart",
             "ecr:CompleteLayerUpload",
             "ecr:PutImage"
+      ],
+      "Resource":"${aws_ecr_repository.pod_identity_webhook.arn}"
+    },
+    {
+      "Sid": "AllowPull",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": [
+          "arn:aws:iam::283504130005:root",
+          "arn:aws:iam::591830280611:root",
+          "arn:aws:iam::848114327112:root",
+          "arn:aws:iam::860996116171:root",
+          "arn:aws:iam::660225450777:root",
+          "arn:aws:iam::072369617205:root",
+          "arn:aws:iam::908538848727:root",
+          "arn:aws:iam::300377511235:root",
+          "arn:aws:iam::311275790335:root"
+        ]
+      },
+      "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:BatchGetImage",
+        "ecr:GetDownloadUrlForLayer"
       ],
       "Resource":"${aws_ecr_repository.pod_identity_webhook.arn}"
     }
