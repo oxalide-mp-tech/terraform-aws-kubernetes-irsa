@@ -46,11 +46,11 @@ resource "aws_iam_openid_connect_provider" "irsa" {
 
 resource "aws_ecr_repository" "pod_identity_webhook" {
   provider = aws.ecr
-  name = "eks/pod-identity-webhook"
+  name     = "eks/pod-identity-webhook"
 }
 
 data "aws_region" "current_ecr" {
-  provider     = aws.ecr
+  provider = aws.ecr
 }
 
 resource "aws_codebuild_project" "pod_identity_webhook" {
@@ -105,8 +105,8 @@ EOF
 # TODO: allow cross-account policy
 resource "aws_iam_role_policy" "codebuild_pod_identity_webhook" {
   provider = aws.ecr
-  role   = aws_iam_role.codebuild_pod_identity_webhook.name
-  policy = <<EOF
+  role     = aws_iam_role.codebuild_pod_identity_webhook.name
+  policy   = <<EOF
 {
   "Version":"2012-10-17",
   "Statement": [
@@ -156,7 +156,20 @@ resource "aws_iam_role_policy" "codebuild_pod_identity_webhook" {
             "ecr:PutImage"
       ],
       "Resource":"${aws_ecr_repository.pod_identity_webhook.arn}"
-    },
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_ecr_repository_policy" "pod_identity_webhook" {
+  provider   = aws.ecr
+  repository = aws_ecr_repository.pod_identity_webhook.name
+
+  policy = <<EOF
+{
+    "Version": "2008-10-17",
+    "Statement": [
     {
       "Sid": "AllowPull",
       "Effect": "Allow",
@@ -177,10 +190,28 @@ resource "aws_iam_role_policy" "codebuild_pod_identity_webhook" {
         "ecr:BatchCheckLayerAvailability",
         "ecr:BatchGetImage",
         "ecr:GetDownloadUrlForLayer"
-      ],
-      "Resource":"${aws_ecr_repository.pod_identity_webhook.arn}"
+      ]
     }
   ]
 }
 EOF
+}
+
+resource "aws_secretsmanager_secret" "irsa_keys_private" {
+  name = "irsa_keys_private"
+}
+
+resource "aws_secretsmanager_secret_version" "irsa_keys_private" {
+  secret_id     = aws_secretsmanager_secret.irsa_keys_private.id
+  secret_string = file(var.signer_private_key_filename)
+}
+
+
+resource "aws_secretsmanager_secret" "irsa_keys_public" {
+  name = "irsa_keys_public"
+}
+
+resource "aws_secretsmanager_secret_version" "irsa_keys_public" {
+  secret_id     = aws_secretsmanager_secret.irsa_keys_public.id
+  secret_string = file(var.signer_public_key_filename)
 }
