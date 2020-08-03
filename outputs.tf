@@ -26,6 +26,8 @@ spec:
     isBase64: true
     name: service-account-key-file
     path: /srv/kubernetes/assets/service-account-key
+    roles:
+    - Master
   kubeAPIServer:
     apiAudiences:
     - sts.amazonaws.com
@@ -34,5 +36,7 @@ spec:
     - /srv/kubernetes/server.key
     - /srv/kubernetes/assets/service-account-key
     serviceAccountSigningKeyFile: /srv/kubernetes/assets/service-account-signing-key
+    roles:
+    - Master
 EOF
 }
